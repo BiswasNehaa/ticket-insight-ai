@@ -130,6 +130,12 @@ Captured from real runs against the provided dataset:
 
 ## Known limitations
 
+- "Anomaly"-flavored questions asked through `/query` (e.g. "are there any anomalies in
+  resolution times?") get answered by the LLM picking its own ad-hoc numeric threshold via
+  the filter schema, not the statistically-computed mean+2std threshold that `/anomalies`
+  actually uses. The two code paths are independent by design (`/anomalies` is deliberately
+  deterministic/rule-based, not LLM-driven) - for true anomaly questions, prefer the
+  dedicated `/anomalies` endpoint or UI tab over phrasing it as a natural-language query.
 - The NL->query layer can only express what the `QuerySpec` schema covers (single metric,
   single group-by, a fixed set of filter fields). Genuinely open-ended questions ("summarize
   the biggest problems this quarter") aren't answerable — that would need a different,
