@@ -15,7 +15,7 @@ from app.query_builder import ALLOWED_GROUP_BY, ALLOWED_METRICS, CATEGORICAL_COL
 
 load_dotenv()
 
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 
 _client: Groq | None = None
 

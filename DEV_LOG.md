@@ -24,12 +24,18 @@ Running log of each piece built, how it was tested, and when it was committed.
 
 ## 5. LLM integration (`app/llm.py`)
 - Groq client, two calls: (a) NL question -> structured JSON filter spec (never raw SQL), (b) result rows -> plain-English answer.
-- Status: implemented, **pending a live test against the Groq API** (needs `GROQ_API_KEY`).
+- Initially targeted `llama-3.3-70b-versatile`, which returned a 404 (model no longer served on Groq). Switched to `openai/gpt-oss-120b` after checking `client.models.list()` for what's currently live on the free tier.
+- Test: ran 5 of the brief's sample questions end-to-end (NL -> spec -> SQL -> rows -> phrased answer):
+  - "How many tickets are currently open?" -> 111, correct.
+  - "Which agent has the lowest average customer rating?" -> AGT-08 (3.48), correct.
+  - "What is the average customer rating for Technical category tickets?" -> 3.74, correct.
+  - "Show me all Critical tickets not resolved within 12 hours." -> list mode, 31 matching rows, correct filter logic (priority=Critical, status!=Resolved, hours since created > 12).
+  - "Which agent resolved the most tickets?" -> AGT-12 (37 resolved), correct.
 
 ## 6. FastAPI app (`app/main.py`)
 - `/health`, `POST /query`, `GET /anomalies`.
-- Status: `/health` and `/anomalies` testable now (no LLM dependency). `/query` pending Groq key.
+- Test: `/health` -> 200, tickets_loaded=500. `/anomalies` -> 200, total_anomalies=97. `/query` with "How many tickets are currently open?" -> 200, correct answer and result_rows.
 
 ## 7. Streamlit UI (`streamlit_app.py`)
 - Two tabs: ask a question, run anomaly scan. Imports `app.*` modules directly rather than calling the API over HTTP, so it works standalone.
-- Status: anomaly tab testable now, question tab pending Groq key.
+- Logic shared with `/query` and `/anomalies` (same underlying functions), so it inherits the same test coverage above; not re-tested separately through the Streamlit UI itself yet.
