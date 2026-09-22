@@ -34,6 +34,18 @@ def get_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
     return conn
 
 
+def get_latest_ticket_date(conn: sqlite3.Connection) -> str:
+    """Latest created_at date in the data, used as the reference 'today' for
+    resolving relative phrases like 'this month' / 'this week' in NL questions.
+
+    Anchoring to the data's own timeline (rather than the real wall-clock date)
+    keeps relative-date questions meaningful on a static/historical dataset,
+    and is a no-op difference on live data where the latest row is close to now.
+    """
+    row = conn.execute(f"SELECT MAX(created_at) FROM {TABLE_NAME}").fetchone()
+    return row[0].split(" ")[0] if row and row[0] else None
+
+
 if __name__ == "__main__":
     load_csv_to_db()
     print(f"Loaded {CSV_PATH} into {DB_PATH}")

@@ -147,6 +147,8 @@ Captured from real runs against the provided dataset:
 - `issue_summary` is free text but isn't used for semantic/similarity search — filtering is
   only on the structured columns (category, priority, status, agent, dates, numeric fields).
 - No auth on the API; fine for a local evaluation run, not production-ready as-is.
+- Groq's free tier has a rate limit (8000 tokens/minute at time of writing). Rapid-fire
+  querying can hit it; a real deployment would add request queuing/backoff or a paid tier.
 - Single-process SQLite; would move to a proper server-based DB before any concurrent/
   multi-user use.
 

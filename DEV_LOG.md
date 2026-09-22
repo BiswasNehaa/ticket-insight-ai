@@ -36,6 +36,23 @@ Running log of each piece built, how it was tested, and when it was committed.
 - `/health`, `POST /query`, `GET /anomalies`.
 - Test: `/health` -> 200, tickets_loaded=500. `/anomalies` -> 200, total_anomalies=97. `/query` with "How many tickets are currently open?" -> 200, correct answer and result_rows.
 
+## 8. Fix: relative-date questions ("this month") resolved against real time, not data time
+- Found via live UI test: "Which agent resolved the most tickets this month?" returned
+  "No matching tickets were found." Root cause: `today_iso` passed to the LLM was
+  `date.today()` (real wall-clock date), but the dataset is a static historical snapshot
+  (Jan-Mar 2024) - "this month" resolved to the real current month, which has zero
+  overlap with the data.
+- Fix: added `get_latest_ticket_date()` in `app/db.py`, returning `MAX(created_at)` from
+  the table. Both `app/main.py` and `streamlit_app.py` now pass that as the reference
+  date instead of the real date. Correct on this historical dataset, and a no-op
+  difference on live data (latest row would already be close to real "now").
+- Test: re-ran the failing question -> now returns "AGT-01 resolved the most tickets
+  this month, with 16 tickets" (correctly resolving to March 2024). Re-verified an
+  unrelated query ("How many tickets are currently open?") still returns 111, unchanged.
+  `/health` and `/anomalies` unaffected (no date-relative LLM calls in those paths).
+- Also hit Groq's free-tier rate limit (8000 TPM) mid-testing from rapid repeated calls -
+  not a code issue, just a real constraint of the free tier worth knowing about live.
+
 ## 7. Streamlit UI (`streamlit_app.py`)
 - Two tabs: ask a question, run anomaly scan. Imports `app.*` modules directly rather than calling the API over HTTP, so it works standalone.
 - Logic shared with `/query` and `/anomalies` (same underlying functions), so it inherits the same test coverage above; not re-tested separately through the Streamlit UI itself yet.

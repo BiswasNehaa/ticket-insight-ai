@@ -5,14 +5,12 @@ Endpoints:
   POST /query       - natural language question -> data-grounded answer
   GET  /anomalies  - rule-based anomaly detection results
 """
-from datetime import date
-
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from app import llm
 from app.anomaly import detect_anomalies
-from app.db import DB_PATH, get_connection, load_csv_to_db
+from app.db import DB_PATH, get_connection, get_latest_ticket_date, load_csv_to_db
 from app.query_builder import InvalidQuerySpec, build_sql
 
 app = FastAPI(title="Ticket Insight AI", version="1.0")
@@ -51,23 +49,27 @@ def query(req: QueryRequest) -> QueryResponse:
     if not req.question or not req.question.strip():
         raise HTTPException(status_code=400, detail="question must not be empty")
 
-    try:
-        spec = llm.extract_query_spec(req.question, today_iso=date.today().isoformat())
-    except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=502, detail=f"Could not interpret question: {e}")
-
-    try:
-        sql, params = build_sql(spec)
-    except InvalidQuerySpec as e:
-        raise HTTPException(status_code=422, detail=f"Invalid query spec from LLM: {e}")
-
     conn = get_connection()
     try:
+        reference_date = get_latest_ticket_date(conn)
+
+        try:
+            spec = llm.extract_query_spec(req.question, today_iso=reference_date)
+        except RuntimeError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        except ValueError as e:
+            raise HTTPException(status_code=502, detail=f"Could not interpret question: {e}")
+
+        try:
+            sql, params = build_sql(spec)
+        except InvalidQuerySpec as e:
+            raise HTTPException(status_code=422, detail=f"Invalid query spec from LLM: {e}")
+
         cursor = conn.execute(sql, params)
         columns = [d[0] for d in cursor.description]
         rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Query execution failed: {e}")
     finally:

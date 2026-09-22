@@ -4,14 +4,12 @@ Uses the same app.* modules as the FastAPI service (not HTTP calls to it),
 so this works standalone with `streamlit run streamlit_app.py` even if the
 API process isn't running, and there's a single source of truth for logic.
 """
-from datetime import date
-
 import pandas as pd
 import streamlit as st
 
 from app import llm
 from app.anomaly import detect_anomalies
-from app.db import get_connection
+from app.db import get_connection, get_latest_ticket_date
 from app.query_builder import InvalidQuerySpec, build_sql
 
 st.set_page_config(page_title="Ticket Insight AI", layout="wide")
@@ -28,11 +26,12 @@ with tab_query:
     if st.button("Ask", type="primary") and question.strip():
         with st.spinner("Thinking..."):
             try:
-                spec = llm.extract_query_spec(question, today_iso=date.today().isoformat())
-                sql, params = build_sql(spec)
-
                 conn = get_connection()
                 try:
+                    reference_date = get_latest_ticket_date(conn)
+                    spec = llm.extract_query_spec(question, today_iso=reference_date)
+                    sql, params = build_sql(spec)
+
                     cursor = conn.execute(sql, params)
                     columns = [d[0] for d in cursor.description]
                     rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
